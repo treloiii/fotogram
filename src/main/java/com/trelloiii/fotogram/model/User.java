@@ -1,4 +1,5 @@
 package com.trelloiii.fotogram.model;
+import com.trelloiii.fotogram.configuration.IgnoreNull;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
@@ -8,6 +9,7 @@ import java.util.List;
 
 @Data
 @Table("usr")
+@IgnoreNull
 public class User{
     @Id
     private Long id;

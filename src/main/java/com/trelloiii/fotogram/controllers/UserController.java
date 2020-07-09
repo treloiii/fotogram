@@ -18,10 +18,8 @@ import java.util.stream.Collectors;
 public class UserController {
 
     private final UserService userService;
-    private final ConnectionFactory connectionFactory;
-    public UserController(UserService userService, @Qualifier("connectionFactory") ConnectionFactory connectionFactory) {
-        this.userService = userService;
-        this.connectionFactory = connectionFactory;
+    public UserController(UserService userService) {
+        this.userService=userService;
     }
 
     @GetMapping("/{id}")

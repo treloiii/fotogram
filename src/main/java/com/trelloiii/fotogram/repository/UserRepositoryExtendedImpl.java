@@ -17,34 +17,21 @@ import java.time.LocalDate;
 import java.util.*;
 
 @Repository
-public class UserRepositoryExtendedImpl implements UserRepositoryExtended {
-        private final ConnectionFactory connectionFactory;
-//    private final ConnectionPool connectionPool;
+public class UserRepositoryExtendedImpl extends BaseRepository implements UserRepositoryExtended {
+    private final ConnectionFactory connectionFactory;
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
-//    public UserRepositoryExtendedImpl(ConnectionPool connectionPool) {
-//        this.connectionPool = connectionPool;
-//    }
     public UserRepositoryExtendedImpl(@Qualifier("connectionFactory") ConnectionFactory connectionFactory) {
         this.connectionFactory = connectionFactory;
     }
 
     @Override
     public Flux<User> findAllUsers() {
-        return Mono.from(connectionFactory.create())
-                .flatMap(connection ->
-                        Mono.from(connection.createStatement(
-                                "select u.id,u.username,u.avatar_url,u.tag, " +
-                                        "p.id as photo_id,p.url,p.time,p.caption,p.owner_id " +
-                                        "from usr u left join photo p on u.id = p.owner_id"
-                        )
-                                .execute())
-                                .doFinally(st -> {
-                                    connection.close();//.subscribe(()-> System.out.println("suka"));
-                                })
-                )
-                .flatMapMany(result -> result.map(this::rowToMap))
-                .collectList()
+        return  queryMapRows(
+                "select u.id,u.username,u.avatar_url,u.tag, " +
+                "p.id as photo_id,p.url,p.time,p.caption,p.owner_id " +
+                "from usr u left join photo p on u.id = p.owner_id",
+                connectionFactory)
                 .flatMapMany(rows -> {
                     Map<Long, User> users = new HashMap<>();
                     rows.forEach(row -> {
@@ -83,14 +70,5 @@ public class UserRepositoryExtendedImpl implements UserRepositoryExtended {
         user.setUsername((String) row.get("username"));
         user.setAvatarUrl((String) row.get("avatar_url"));
         return user;
-    }
-
-    private Map<String, Object> rowToMap(Row row, RowMetadata meta) {
-        Map<String, Object> rows = new HashMap<>();
-        meta.getColumnNames()
-                .forEach(name -> {
-                    rows.put(name, row.get(name));
-                });
-        return rows;
     }
 }
