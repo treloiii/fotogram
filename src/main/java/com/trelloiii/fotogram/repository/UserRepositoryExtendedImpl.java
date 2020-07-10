@@ -1,5 +1,7 @@
 package com.trelloiii.fotogram.repository;
 
+import com.trelloiii.fotogram.dto.UserSubs;
+import com.trelloiii.fotogram.exceptions.EntityNotFoundException;
 import com.trelloiii.fotogram.model.Photo;
 import com.trelloiii.fotogram.model.User;
 import io.r2dbc.pool.ConnectionPool;
@@ -26,11 +28,46 @@ public class UserRepositoryExtendedImpl extends BaseRepository implements UserRe
     }
 
     @Override
+    public Mono<User> getUserProfileByTag(String tag) {
+        return queryMapRows(
+                "select distinct  u.id, u.username,u.tag, u.avatar_url,\n" +
+                        "       subscription.id as subscription_id , subscription.avatar_url as subcription_avatar , subscription.tag as subscription_tag,\n" +
+                        "        subscriber.id as subscriber_id , subscriber.avatar_url as subscriber_avatar , subscriber.tag as subscriber_tag from usr u\n" +
+                        "left join usr subscription on subscription.id in (select distinct subs.subscribe_on from subs where subs.user = 1)\n" +
+                        "left join usr subscriber on subscriber.id in (select distinct subs.user from subs where subs.subscribe_on = 1)\n" +
+                        "where u.tag = ?tag;",
+                connectionFactory,
+                Map.of("tag", tag)
+        )
+                .flatMap(rows -> {
+                    UserSubs userSubs = new UserSubs();
+                    rows.forEach(row -> {
+                        User user = userFromRow(row);
+
+                        User subscriber = new User();
+                        subscriber.setId((Long) row.get("subscriber_id"));
+                        subscriber.setTag((String) row.get("subscriber_tag"));
+                        subscriber.setAvatarUrl((String) row.get("subscriber_avatar"));
+
+                        User subscription = new User();
+                        subscription.setId((Long) row.get("subscription_id"));
+                        subscription.setTag((String) row.get("subscription_tag"));
+                        subscription.setAvatarUrl((String) row.get("subscription_avatar"));
+
+                        userSubs.addUserIfNotPresent(user);
+                        userSubs.addSubscriber(subscriber);
+                        userSubs.addSubscription(subscription);
+                    });
+                    return Mono.just(userSubs.mapUser());
+                });
+    }
+
+    @Override
     public Flux<User> findAllUsers() {
-        return  queryMapRows(
+        return queryMapRows(
                 "select u.id,u.username,u.avatar_url,u.tag, " +
-                "p.id as photo_id,p.url,p.time,p.caption,p.owner_id " +
-                "from usr u left join photo p on u.id = p.owner_id",
+                        "p.id as photo_id,p.url,p.time,p.caption,p.owner_id " +
+                        "from usr u left join photo p on u.id = p.owner_id",
                 connectionFactory)
                 .flatMapMany(rows -> {
                     Map<Long, User> users = new HashMap<>();

@@ -32,6 +32,7 @@ public abstract class BaseRepository {
     protected Mono<List<Map<String, Object>>> queryMapRows(String s, ConnectionFactory connectionFactory, Map<String, Object> binds) {
         return Mono.from(connectionFactory.create())
                 .flatMap(connection -> {
+
                             Statement statement = connection.createStatement(s);
                             binds.forEach(statement::bind);
                             Publisher<? extends Result> res = statement.execute();

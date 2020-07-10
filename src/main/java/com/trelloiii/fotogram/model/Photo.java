@@ -1,5 +1,5 @@
 package com.trelloiii.fotogram.model;
-import com.trelloiii.fotogram.configuration.IgnoreNull;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
@@ -10,7 +10,7 @@ import java.util.List;
 
 @Table
 @Data
-@IgnoreNull
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Photo{
     @Id
     private Long id;

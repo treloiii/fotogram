@@ -6,5 +6,5 @@ import reactor.core.publisher.Mono;
 
 public interface UserRepository extends ReactiveCrudRepository<User,Long>, UserRepositoryExtended {
     Mono<User> findUserByUsername(String username);
-    Mono<User> findUserByTag(String tag);
+    Mono<User> getUserProfileByTag(String tag);
 }

@@ -1,5 +1,6 @@
 package com.trelloiii.fotogram.controllers;
 
+import com.trelloiii.fotogram.model.Photo;
 import com.trelloiii.fotogram.model.User;
 import com.trelloiii.fotogram.service.UserService;
 import io.r2dbc.spi.ConnectionFactory;
@@ -22,12 +23,25 @@ public class UserController {
         this.userService=userService;
     }
 
-    @GetMapping("/{id}")
-    public Mono<User> getById(@PathVariable Long id){
-        return userService.getUserById(id);
+    /**
+     * For get primary user information
+     * @param tag user tag
+     * @return User
+     * @see com.trelloiii.fotogram.model.User
+     */
+    @GetMapping("/{tag}")
+    public Mono<User> getByTag(@PathVariable String tag){
+        return userService.getUserByTag(tag);
     }
-    @GetMapping
-    public Flux<User> findAll(){
-       return userService.findAllUsers();
+
+    /**
+     * For get all user photos
+     * @param tag user tag
+     * @return array of user photos
+     * @see com.trelloiii.fotogram.model.Photo
+     */
+    @GetMapping("/{tag}/photos")
+    public Flux<Photo> getAllUserPhotos(@PathVariable String tag){
+        return userService.findAllUserPhotos(tag);
     }
 }
