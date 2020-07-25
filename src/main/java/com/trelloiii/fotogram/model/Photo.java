@@ -15,7 +15,7 @@ public class Photo{
     @Id
     private Long id;
     private String url;
-    private LocalDateTime date;
+    private LocalDateTime time;
     private String caption;
     @Column("owner_id")
     private Long ownerId;

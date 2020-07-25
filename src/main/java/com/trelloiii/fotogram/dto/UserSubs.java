@@ -1,5 +1,6 @@
 package com.trelloiii.fotogram.dto;
 
+import com.trelloiii.fotogram.exceptions.EntityNotFoundException;
 import com.trelloiii.fotogram.model.User;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,11 +29,5 @@ public class UserSubs {
         if(Objects.isNull(user)){
             user = u;
         }
-    }
-
-    public User mapUser(){
-        user.setSubscriber(subscribers);
-        user.setSubscriptions(subscriptions);
-        return user;
     }
 }

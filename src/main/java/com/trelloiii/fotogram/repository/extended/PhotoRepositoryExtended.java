@@ -1,4 +1,4 @@
-package com.trelloiii.fotogram.repository;
+package com.trelloiii.fotogram.repository.extended;
 
 import com.trelloiii.fotogram.model.Photo;
 import reactor.core.publisher.Flux;
