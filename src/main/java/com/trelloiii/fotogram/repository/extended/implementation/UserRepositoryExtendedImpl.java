@@ -24,10 +24,10 @@ public class UserRepositoryExtendedImpl extends BaseRepository implements UserRe
     }
 
     public Mono<EntityContainer<User>> getUserWithCountOfAllSubs(String username){
-        return queryMapRows(
+        return queryMapRow(
             "select id\n" +
                     "     , username\n" +
-                    "     , avatar_url as avatar\n" +
+                    "     , avatar_url\n" +
                     "     , (select count(*) from subs subscribers where subscribers.subscribe_on = u.id) as subscribers_count\n" +
                     "     , (select count(*) from subs subscribptions where subscribptions.user = u.id) as subscriptions_count\n" +
                     "from usr u\n" +
@@ -35,25 +35,12 @@ public class UserRepositoryExtendedImpl extends BaseRepository implements UserRe
                 connectionFactory,
                 Map.of("username",username)
         )
-                .flatMap(rows->{
-                    if(rows.size()<1){
-                        return Mono.error(new EntityNotFoundException(
-                                String.format("User with username %s not found",username)
-                        ));
-                    }
-                    return Mono.just(
-                            mapProfile(rows)
-                    );
-                });
+                .flatMap(rows-> Mono.just(
+                        mapProfile(rows)
+                ));
     }
-    private EntityContainer<User> mapProfile(List<Map<String,Object>> rows){
-        Map<String,Object> row = rows.get(0);
-        User user =  new User(
-                (long)row.get("id"),
-                (String)row.get("username"),
-                null,
-                (String)row.get("avatar")
-        );
+    private EntityContainer<User> mapProfile(Map<String,Object> row){
+        User user =  mapObject(row,User.class);
         return new EntityContainer<>(
                 user,
                 Map.of(

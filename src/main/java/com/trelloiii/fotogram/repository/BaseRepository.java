@@ -12,7 +12,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
 
 public abstract class BaseRepository {
 
@@ -33,31 +37,37 @@ public abstract class BaseRepository {
             throw new UnreachablePageException();
         return count;
     }
-
+    private <T> T extractObjectFromRow(Map<String,Object> row,Class<T> classToMap) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+        T result = classToMap.getDeclaredConstructor().newInstance();
+        Field[] fields = classToMap.getDeclaredFields();
+        for (Field field : fields) {
+            Column columnAnnotation = field.getAnnotation(Column.class);
+            field.setAccessible(true);
+            if (columnAnnotation != null) {
+                String columnName = columnAnnotation.value();
+                field.set(result, row.get(columnName));
+            } else {
+                String name = field.getName();
+                field.set(result, row.get(name));
+            }
+        }
+        return result;
+    }
     protected <T> List<T> mapObjects(List<Map<String,Object>> rows, Class<T> classToMap){
         List<T> resultList = new ArrayList<>();
         rows.forEach(row-> {
             try {
-                T result = (T) classToMap.getDeclaredConstructor().newInstance();
-                Field[] fields = classToMap.getDeclaredFields();
-                for (Field field : fields) {
-                    Column columnAnnotation = field.getAnnotation(Column.class);
-                    field.setAccessible(true);
-                    if (columnAnnotation != null) {
-                        String columnName = columnAnnotation.value();
-                        field.set(result, row.get(columnName));
-                    } else {
-                        String name = field.getName();
-                        field.set(result, row.get(name));
-                    }
-                }
-                resultList.add(result);
+                resultList.add(extractObjectFromRow(row,classToMap));
             }
             catch (Exception e){
                 e.printStackTrace();
             }
         });
         return resultList;
+    }
+    @SneakyThrows
+    protected <T> T mapObject(Map<String,Object> row,Class<T> classToMap){
+        return extractObjectFromRow(row,classToMap);
     }
 
     protected Map<String, Object> rowToMap(Row row, RowMetadata meta) {
@@ -69,19 +79,16 @@ public abstract class BaseRepository {
         return rows;
     }
 
-    protected Mono<List<Map<String, Object>>> queryMapRows(String s, ConnectionFactory connectionFactory) {
-
+    private Flux<Map<String,Object>> fluxResultRows(ConnectionFactory connectionFactory,String s){
         return Mono.from(connectionFactory.create())
                 .flatMap(connection ->
                         Mono.from(connection.createStatement(s)
                                 .execute())
                                 .doFinally(st -> connection.close())
                 )
-                .flatMapMany(result -> result.map(this::rowToMap))
-                .collectList();
+                .flatMapMany(result -> result.map(this::rowToMap));
     }
-
-    protected Mono<List<Map<String, Object>>> queryMapRows(String s, ConnectionFactory connectionFactory, Map<String, Object> binds) {
+    private Flux<Map<String,Object>> fluxResultRows(ConnectionFactory connectionFactory,String s,Map<String,Object> binds){
         return Mono.from(connectionFactory.create())
                 .flatMap(connection -> {
 
@@ -92,7 +99,27 @@ public abstract class BaseRepository {
                                     .doFinally(st -> connection.close());
                         }
                 )
-                .flatMapMany(result -> result.map(this::rowToMap))
+                .flatMapMany(result -> result.map(this::rowToMap));
+    }
+    protected Mono<List<Map<String, Object>>> queryMapRows(String s, ConnectionFactory connectionFactory) {
+        return fluxResultRows(connectionFactory,s)
                 .collectList();
+    }
+    protected Mono<Map<String,Object>> queryMapRow(String s,ConnectionFactory connectionFactory){
+        return fluxResultRows(connectionFactory,s)
+                .take(1)
+                .collectList()
+                .flatMap(list->Mono.just(list.get(0)));
+    }
+
+    protected Mono<List<Map<String, Object>>> queryMapRows(String s, ConnectionFactory connectionFactory, Map<String, Object> binds) {
+        return fluxResultRows(connectionFactory, s, binds)
+                .collectList();
+    }
+    protected Mono<Map<String,Object>> queryMapRow(String s,ConnectionFactory connectionFactory,Map<String,Object> binds){
+        return fluxResultRows(connectionFactory,s,binds)
+                .take(1)
+                .collectList()
+                .flatMap(list->Mono.just(list.get(0)));
     }
 }
