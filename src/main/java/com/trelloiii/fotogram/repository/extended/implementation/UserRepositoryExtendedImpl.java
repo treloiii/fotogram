@@ -1,28 +1,29 @@
 package com.trelloiii.fotogram.repository.extended.implementation;
 
-import com.trelloiii.fotogram.model.dirty.CustomUser;
 import com.trelloiii.fotogram.exceptions.EntityNotFoundException;
+import com.trelloiii.fotogram.model.User;
 import com.trelloiii.fotogram.repository.BaseRepository;
 import com.trelloiii.fotogram.repository.extended.UserRepositoryExtended;
-import io.r2dbc.spi.*;
+import com.trelloiii.fotogram.repository.utils.EntityContainer;
+import io.r2dbc.spi.ConnectionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 
 @Repository
 public class UserRepositoryExtendedImpl extends BaseRepository implements UserRepositoryExtended {
     private final ConnectionFactory connectionFactory;
-    private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     public UserRepositoryExtendedImpl(@Qualifier("connectionFactory") ConnectionFactory connectionFactory) {
         this.connectionFactory = connectionFactory;
     }
 
-    public Mono<CustomUser> getUserProfile(String username){
+    public Mono<EntityContainer<User>> getUserWithCountOfAllSubs(String username){
         return queryMapRows(
             "select id\n" +
                     "     , username\n" +
@@ -45,14 +46,20 @@ public class UserRepositoryExtendedImpl extends BaseRepository implements UserRe
                     );
                 });
     }
-    private CustomUser mapProfile(List<Map<String,Object>> rows){
+    private EntityContainer<User> mapProfile(List<Map<String,Object>> rows){
         Map<String,Object> row = rows.get(0);
-        return new CustomUser(
+        User user =  new User(
                 (long)row.get("id"),
                 (String)row.get("username"),
-                (String)row.get("avatar"),
-                (long)row.get("subscribers_count"),
-                (long)row.get("subscriptions_count")
+                null,
+                (String)row.get("avatar")
+        );
+        return new EntityContainer<>(
+                user,
+                Map.of(
+                        "subscribers_count",row.get("subscribers_count"),
+                        "subscriptions_count",row.get("subscriptions_count")
+                )
         );
     }
 }

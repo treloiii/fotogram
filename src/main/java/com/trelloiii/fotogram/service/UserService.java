@@ -1,45 +1,39 @@
 package com.trelloiii.fotogram.service;
 
 import com.trelloiii.fotogram.dto.UserProfileDto;
-import com.trelloiii.fotogram.model.dirty.CustomUser;
-import com.trelloiii.fotogram.model.Photo;
 import com.trelloiii.fotogram.model.User;
-import com.trelloiii.fotogram.repository.PhotoRepository;
 import com.trelloiii.fotogram.repository.UserRepository;
+import com.trelloiii.fotogram.service.facade.UserServiceFacade;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.util.function.Supplier;
 
 @Service
 public class UserService implements ReactiveUserDetailsService {
 
     private final UserRepository userRepository;
-    private final PhotoRepository photoRepository;
+    private final UserServiceFacade userServiceFacade;
 
-    public UserService(UserRepository userRepository, PhotoRepository photoRepository) {
+    public UserService(UserRepository userRepository, UserServiceFacade userServiceFacade) {
         this.userRepository = userRepository;
-        this.photoRepository = photoRepository;
-    }
-
-    public Flux<Photo> findAllUserPhotos(String username) {
-        return photoRepository.getAllUserPhotos(username);
+        this.userServiceFacade = userServiceFacade;
     }
 
     public Mono<UserProfileDto> getUserProfile(String username) {
-        Mono<CustomUser> customUser = userRepository.getUserProfile(username);
-        Flux<Photo> userPhotos = findAllUserPhotos(username);
-        return userPhotos.collectList()
-                .flatMap(photos-> customUser.flatMap(user->{
+        return userServiceFacade.getUserAndHisPhotos(username,PageRequest.of(0,10, Sort.Direction.DESC,"id"))
+                .flatMap(tuple->{
+                    var container = tuple.getT1();
+                    var page = tuple.getT2();
                     UserProfileDto userProfileDto = new UserProfileDto(
-                            user,
-                            photos
+                            container.getEntity(),
+                            page,
+                            container.getMetadata()
                     );
                     return Mono.just(userProfileDto);
-                }));
+                });
     }
 
     @Override
