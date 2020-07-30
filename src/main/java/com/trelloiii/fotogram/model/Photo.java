@@ -25,9 +25,10 @@ public class Photo{
     private LocalDate time;
     @JsonView(View.Full.class)
     private String caption;
-    @Column("owner_id")
-    @JsonView(View.Important.class)
-    private Long ownerId;
+
+    @JsonView(View.Full.class)
+    @Transient
+    private User owner;
     @Transient
     @JsonView(View.Full.class)
     private List<PhotoLikes> likes;

@@ -4,7 +4,9 @@ import com.trelloiii.fotogram.dto.UserProfileDto;
 import com.trelloiii.fotogram.model.User;
 import com.trelloiii.fotogram.repository.UserRepository;
 import com.trelloiii.fotogram.service.facade.UserServiceFacade;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -44,5 +46,13 @@ public class UserService implements ReactiveUserDetailsService {
 
     public Mono<User> getUser(String username) {
         return userRepository.findUserByUsername(username);
+    }
+
+    public Mono<Page<User>> getUserSubscribers(String username, Pageable pageable) {
+        return userRepository.findUserSubscribers(username,pageable);
+    }
+
+    public Mono<Page<User>> getUserSubscriptions(String username, Pageable pageable) {
+        return userRepository.findUserSubscriptions(username,pageable);
     }
 }

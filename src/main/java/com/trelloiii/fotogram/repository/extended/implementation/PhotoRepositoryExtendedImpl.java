@@ -3,8 +3,10 @@ package com.trelloiii.fotogram.repository.extended.implementation;
 import com.trelloiii.fotogram.dto.JsonPage;
 import com.trelloiii.fotogram.exceptions.UnreachablePageException;
 import com.trelloiii.fotogram.model.Photo;
+import com.trelloiii.fotogram.model.User;
 import com.trelloiii.fotogram.repository.BaseRepository;
 import com.trelloiii.fotogram.repository.extended.PhotoRepositoryExtended;
+import com.trelloiii.fotogram.repository.utils.EntityContainer;
 import io.r2dbc.spi.ConnectionFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
@@ -14,7 +16,13 @@ import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 @Repository
 public class PhotoRepositoryExtendedImpl extends BaseRepository implements PhotoRepositoryExtended {
@@ -24,16 +32,44 @@ public class PhotoRepositoryExtendedImpl extends BaseRepository implements Photo
         this.connectionFactory = connectionFactory;
     }
 
-
+    public Mono<EntityContainer<Photo>> findFullPhotoById(Long id){
+        return queryMapRow(
+                "select p.*,u.username,u.avatar_url\n" +
+                        "    ,(select count(*) from photo_likes pl where pl.photo_id = p.id) as likes_count\n" +
+                        "    ,(select count(*) from photo_comments pc where pc.photo_id = p.id) as comments_count\n" +
+                        "    from photo p\n" +
+                        "    join usr u on p.owner_id = u.id\n" +
+                        "    where p.id=?id",
+                connectionFactory,
+                Map.of("id",id)
+        )
+                .flatMap(row->{
+                    EntityContainer<Photo> photoContainer = mapObject(row,Photo.class);
+                    Photo photo  = photoContainer.getEntity();
+                    photo.setOwner(
+                            new User(
+                                    (long) row.get("owner_id"),
+                                    (String) row.get("username"),
+                                    null,//no password!
+                                    (String) row.get("avatar_url")
+                            )
+                    );
+                    return Mono.just(new EntityContainer<>(
+                            photo,
+                            Map.of(
+                                    "likes_count",row.get("likes_count"),
+                                    "comments_count",row.get("comments_count")
+                            )
+                    ));
+                });
+    }
     @Override
     public Mono<Page<Photo>> findByOwnerUsername(String username, Pageable pageable) {
         try {
-            long photoTotalRows = getTotalRows("photo", pageable, connectionFactory);
             long offset = pageable.getOffset();
             int pageSize = pageable.getPageSize();
-            //Page<Photo> page = new PageImpl<>(List.of(),pageable,photoTotalRows);
             return queryMapRows(
-                    "select * from photo p where p.owner_id=" +
+                    "select *, count(*) over() as count from photo p where p.owner_id=" +
                             "(select id from usr u where u.username=?username)" +
                             "order by p.id desc limit ?limit offset ?off;",
                     connectionFactory,
@@ -43,9 +79,7 @@ public class PhotoRepositoryExtendedImpl extends BaseRepository implements Photo
                             "off", offset
                     )
             )
-                    .flatMapMany(rows -> Flux.fromIterable(mapObjects(rows,Photo.class)))
-                    .collectList()
-                    .flatMap(list-> Mono.just(new JsonPage<>(list,pageable,photoTotalRows)));
+                    .flatMap(rows -> pagedEntity(mapObjects(rows,Photo.class),pageable));
         }
         catch (UnreachablePageException e){
             return Mono.just(Page.empty());

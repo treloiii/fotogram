@@ -1,11 +1,14 @@
 package com.trelloiii.fotogram.repository;
 
+import com.trelloiii.fotogram.dto.JsonPage;
 import com.trelloiii.fotogram.exceptions.UnreachablePageException;
 import com.trelloiii.fotogram.model.Photo;
+import com.trelloiii.fotogram.repository.utils.EntityContainer;
 import io.r2dbc.spi.*;
 import lombok.SneakyThrows;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.relational.core.mapping.Column;
 import reactor.core.publisher.Flux;
@@ -20,24 +23,13 @@ import java.util.stream.Collector;
 
 public abstract class BaseRepository {
 
-    protected long getTotalRows(String tableName, Pageable pageable, ConnectionFactory connectionFactory) {
-        Optional<Long> countOptional = queryMapRows(String.format("select count(*) as count from %s;", tableName), connectionFactory)
-                .flatMap(rows -> {
-                    long count = (long) rows.get(0).get("count");
-                    long totalPages = count / pageable.getPageSize();
-                    int pageNumber = pageable.getPageNumber();
-                    if (pageNumber > totalPages) {
-                        return Mono.just(-1L);
-                    }
-                    return Mono.just(count);
-                })
-                .blockOptional();
-        long count = countOptional.orElse(-1L);
-        if(count==-1)
-            throw new UnreachablePageException();
-        return count;
+    protected <T> Mono<Page<T>> pagedEntity(EntityContainer<List<T>> ec,Pageable pageable){
+        Map<String,Object> meta = ec.getMetadata();
+        if(meta.size()<1)
+            return Mono.just(new JsonPage<>(ec.getEntity()));
+        return Mono.just(new JsonPage<>(ec.getEntity(),pageable,(long)meta.get("count")));
     }
-    private <T> T extractObjectFromRow(Map<String,Object> row,Class<T> classToMap) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
+    private <T> EntityContainer<T> extractObjectFromRow(Map<String,Object> row, Class<T> classToMap) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         T result = classToMap.getDeclaredConstructor().newInstance();
         Field[] fields = classToMap.getDeclaredFields();
         for (Field field : fields) {
@@ -45,37 +37,39 @@ public abstract class BaseRepository {
             field.setAccessible(true);
             if (columnAnnotation != null) {
                 String columnName = columnAnnotation.value();
-                field.set(result, row.get(columnName));
+                field.set(result, row.remove(columnName));
             } else {
                 String name = field.getName();
-                field.set(result, row.get(name));
+                field.set(result, row.remove(name));
             }
         }
-        return result;
+        return new EntityContainer<>(result,row);
     }
-    protected <T> List<T> mapObjects(List<Map<String,Object>> rows, Class<T> classToMap){
+    protected <T> EntityContainer<List<T>> mapObjects(List<Map<String,Object>> rows, Class<T> classToMap){
         List<T> resultList = new ArrayList<>();
+        Map<String,Object> totalMeta = new HashMap<>();
         rows.forEach(row-> {
             try {
-                resultList.add(extractObjectFromRow(row,classToMap));
+                EntityContainer<T> entityContainer = extractObjectFromRow(row,classToMap);
+                if(entityContainer.getMetadata()!=null)
+                    totalMeta.putAll(entityContainer.getMetadata());
+                resultList.add(entityContainer.getEntity());
             }
             catch (Exception e){
                 e.printStackTrace();
             }
         });
-        return resultList;
+        return new EntityContainer<>(resultList,totalMeta);
     }
     @SneakyThrows
-    protected <T> T mapObject(Map<String,Object> row,Class<T> classToMap){
+    protected <T> EntityContainer<T> mapObject(Map<String,Object> row,Class<T> classToMap){
         return extractObjectFromRow(row,classToMap);
     }
 
     protected Map<String, Object> rowToMap(Row row, RowMetadata meta) {
         Map<String, Object> rows = new HashMap<>();
         meta.getColumnNames()
-                .forEach(name -> {
-                    rows.put(name, row.get(name));
-                });
+                .forEach(name -> rows.put(name, row.get(name)));
         return rows;
     }
 
