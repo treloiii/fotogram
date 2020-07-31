@@ -46,10 +46,4 @@ public class UserController {
         return userService.getUserSubscriptions(username,pageable);
     }
 
-    @PostMapping("/photo")
-    public Mono<Photo> postPhoto(
-            @RequestParam String caption,
-            @RequestParam MultipartFile image){
-        return null;
-    }
 }
