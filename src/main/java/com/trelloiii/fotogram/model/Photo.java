@@ -1,4 +1,5 @@
 package com.trelloiii.fotogram.model;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.trelloiii.fotogram.views.View;
@@ -25,7 +26,8 @@ public class Photo{
     private LocalDate time;
     @JsonView(View.Full.class)
     private String caption;
-
+    @JsonIgnore
+    private Long ownerId;
     @JsonView(View.Full.class)
     @Transient
     private User owner;

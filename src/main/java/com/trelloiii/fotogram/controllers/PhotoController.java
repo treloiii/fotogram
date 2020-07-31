@@ -40,10 +40,8 @@ public class PhotoController {
         return photoService.getUserPhotos(username, pageable);
     }
 
-//    @PostMapping(value = "/upload",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//    public Mono<Photo> postPhoto(@RequestParam("file") Part part){
-//        //todo переписать на ебучий функшионал код
-//        System.out.println("susi");
-//        return null;
-//    }
+    @DeleteMapping("/{id}")
+    public void deletePhoto(@PathVariable Long id){
+        photoService.deletePhoto(id);
+    }
 }
