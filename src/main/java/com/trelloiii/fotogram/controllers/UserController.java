@@ -10,9 +10,16 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.parameters.P;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+
+import java.security.Principal;
 
 @RestController
 @RequestMapping("/user")
@@ -22,8 +29,6 @@ public class UserController {
     public UserController(UserService userService) {
         this.userService=userService;
     }
-
-
     @GetMapping("/{username}")
     @JsonView(View.Important.class)
     public Mono<UserProfileDto> getUserProfileByUsername(@PathVariable String username){
