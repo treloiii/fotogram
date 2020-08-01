@@ -1,16 +1,19 @@
-package com.trelloiii.fotogram.configuration;
+package com.trelloiii.fotogram.configuration.security;
 
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.security.SignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.Marker;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
+import java.util.Objects;
 
 @Component
 public class AuthenticationManager implements ReactiveAuthenticationManager {
@@ -38,10 +41,13 @@ public class AuthenticationManager implements ReactiveAuthenticationManager {
             e.printStackTrace();
         }
         if (username!=null && jwtUtil.validate(token)){
+            List<GrantedAuthority> roles = jwtUtil.getRoles(token);
+            if(Objects.isNull(roles))
+                return Mono.empty();
             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                     username,
                     null,
-                    jwtUtil.getRoles(token)
+                    roles
             );
             return Mono.just(authToken);
         }else{

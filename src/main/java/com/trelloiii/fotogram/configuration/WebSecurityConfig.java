@@ -1,5 +1,7 @@
 package com.trelloiii.fotogram.configuration;
 
+import com.trelloiii.fotogram.configuration.security.AuthenticationManager;
+import com.trelloiii.fotogram.configuration.security.SecurityContextRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -46,7 +48,7 @@ public class WebSecurityConfig {
                 .authenticationManager(authenticationManager)
                 .securityContextRepository(securityContextRepository)
                 .authorizeExchange()
-                .pathMatchers("/","/login","/favicon.ico").permitAll()
+                .pathMatchers("/","/login/**","/favicon.ico").permitAll()
                 .anyExchange().authenticated()
                 .and()
                 .build();

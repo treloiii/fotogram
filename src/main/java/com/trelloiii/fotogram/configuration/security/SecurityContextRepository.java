@@ -1,5 +1,6 @@
-package com.trelloiii.fotogram.configuration;
+package com.trelloiii.fotogram.configuration.security;
 
+import com.trelloiii.fotogram.configuration.security.AuthenticationManager;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
