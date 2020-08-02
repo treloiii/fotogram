@@ -43,7 +43,6 @@ public class UserService implements ReactiveUserDetailsService {
         return userRepository.findUserByUsername(s)
                 .cast(UserDetails.class);
     }
-
     public Mono<User> getUser(String username) {
         return userRepository.findUserByUsername(username);
     }
