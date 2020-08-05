@@ -17,6 +17,6 @@ import java.util.Map;
 @JsonView(View.Important.class)
 public class UserProfileDto {
     private User user;
-    private Page<Photo> userPhotos;
+//    private Page<Photo> userPhotos;
     private Map<String,Object> additionalInfo;
 }

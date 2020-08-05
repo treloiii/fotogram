@@ -21,12 +21,6 @@ import java.util.concurrent.CompletableFuture;
 
 @Repository
 public class UserRepositoryExtendedImpl extends BaseRepository implements UserRepositoryExtended {
-    private final ConnectionFactory connectionFactory;
-
-    public UserRepositoryExtendedImpl(@Qualifier("connectionFactory") ConnectionFactory connectionFactory) {
-        this.connectionFactory = connectionFactory;
-    }
-
     public Mono<EntityContainer<User>> getUserWithCountOfAllSubs(String username){
         return queryMapRow(
             "select id\n" +
@@ -35,12 +29,11 @@ public class UserRepositoryExtendedImpl extends BaseRepository implements UserRe
                     "     , (select count(*) from subs subscribers where subscribers.subscribe_on = u.id) as subscribers_count\n" +
                     "     , (select count(*) from subs subscribptions where subscribptions.user = u.id) as subscriptions_count\n" +
                     "from usr u\n" +
-                    "where u.username = ?username",
-                connectionFactory,
+                    "where u.username = :username",
                 Map.of("username",username)
         )
                 .flatMap(rows-> Mono.just(
-                        mapProfile(rows)
+                        mapObject(rows,User.class)
                 ));
     }
 
@@ -51,10 +44,9 @@ public class UserRepositoryExtendedImpl extends BaseRepository implements UserRe
         return queryMapRows(
             "select *, count(*) over() as count from usr where id in (\n" +
                     "    select s.user from subs s where s.subscribe_on = (\n" +
-                    "        select id from usr u where u.username = ?username\n" +
+                    "        select id from usr u where u.username = :username\n" +
                     "    )\n" +
-                    ") order by id desc limit ?lim offset ?off",
-                connectionFactory,
+                    ") order by id desc limit :lim offset :off",
                 Map.of(
                         "username",username,
                         "lim",pageSize,
@@ -71,10 +63,9 @@ public class UserRepositoryExtendedImpl extends BaseRepository implements UserRe
         return queryMapRows(
                 "select *, count(*) over() as count from usr where id in (\n" +
                         "    select s.subscribe_on from subs s where s.user = (\n" +
-                        "        select id from usr u where u.username = ?username\n" +
+                        "        select id from usr u where u.username = :username\n" +
                         "    )\n" +
-                        ") order by id desc limit ?lim offset ?off",
-                connectionFactory,
+                        ") order by id desc limit :lim offset :off",
                 Map.of(
                         "username",username,
                         "lim",pageSize,
@@ -82,17 +73,5 @@ public class UserRepositoryExtendedImpl extends BaseRepository implements UserRe
                 )
         )
                 .flatMap(rows->pagedEntity(mapObjects(rows,User.class),pageable));
-    }
-
-    private EntityContainer<User> mapProfile(Map<String,Object> row){
-        return mapObject(row,User.class);
-//        User user =  mapObject(row,User.class);
-//        return new EntityContainer<>(
-//                user,
-//                Map.of(
-//                        "subscribers_count",row.get("subscribers_count"),
-//                        "subscriptions_count",row.get("subscriptions_count")
-//                )
-//        );
     }
 }

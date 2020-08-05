@@ -1,30 +1,35 @@
 package com.trelloiii.fotogram.repository;
 
 import com.trelloiii.fotogram.dto.JsonPage;
-import com.trelloiii.fotogram.exceptions.UnreachablePageException;
-import com.trelloiii.fotogram.model.Photo;
 import com.trelloiii.fotogram.repository.utils.EntityContainer;
 import io.r2dbc.spi.*;
 import lombok.SneakyThrows;
 import org.reactivestreams.Publisher;
-import org.reactivestreams.Subscriber;
-import org.reactivestreams.Subscription;
-import org.springframework.beans.BeanUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.r2dbc.connectionfactory.ConnectionFactoryUtils;
+import org.springframework.data.r2dbc.core.DatabaseClient;
+import org.springframework.data.r2dbc.core.FetchSpec;
 import org.springframework.data.relational.core.mapping.Column;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.Supplier;
-import java.util.stream.Collector;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public abstract class BaseRepository {
-
+    private final Logger logger = LoggerFactory.getLogger(BaseRepository.class);
+    private DatabaseClient client=null;
+    @Autowired
+    final void setClient(ConnectionFactory connectionFactory){
+        client = DatabaseClient.create(connectionFactory);
+    }
     protected <T> Mono<Page<T>> pagedEntity(EntityContainer<List<T>> ec, Pageable pageable) {
         Map<String, Object> meta = ec.getMetadata();
         if (meta.size() < 1)
@@ -77,68 +82,71 @@ public abstract class BaseRepository {
                 .forEach(name -> rows.put(name, row.get(name)));
         return rows;
     }
+    private DatabaseClient.GenericExecuteSpec getEx(String s,Map<String,Object> binds){
+        var ex  = client.execute(s);
+        for(var e:binds.entrySet()){
+            ex = ex.bind(e.getKey(),e.getValue());
+        }
+        return ex;
+    }
 
 
+    @Deprecated
     private Mono<Result> getResult(ConnectionFactory connectionFactory, String s) {
         return Mono.from(connectionFactory.create())
                 .flatMap(connection ->
                         Mono.from(connection.createStatement(s)
                                 .execute())
-                                .doFinally(st -> connection.close())
+                                .doFinally(st -> ConnectionFactoryUtils.closeConnection(connection,connectionFactory).then())
                 );
     }
+    @Deprecated
     private Mono<Result> getResult(ConnectionFactory connectionFactory, String s, Map<String, Object> binds){
         return Mono.from(connectionFactory.create())
                 .flatMap(connection -> {
+                            connection.beginTransaction();
                             Statement statement = connection.createStatement(s);
                             binds.forEach(statement::bind);
                             Publisher<? extends Result> res = statement.execute();
+                            connection.commitTransaction();
                             return Mono.from(res)
-                                    .doFinally(st -> connection.close());
+                                    .doFinally(st -> ConnectionFactoryUtils.closeConnection(connection,connectionFactory).then());
                         }
                 );
     }
 
-    private Flux<Map<String, Object>> fluxResultRows(ConnectionFactory connectionFactory, String s) {
-        return getResult(connectionFactory, s)
-                .flatMapMany(result -> result.map(this::rowToMap));
+    private FetchSpec<Map<String, Object>> fluxResultRows(String s) {
+        return client.execute(s).fetch();
     }
 
-    private Flux<Map<String, Object>> fluxResultRows(ConnectionFactory connectionFactory, String s, Map<String, Object> binds) {
-        return getResult(connectionFactory, s, binds)
-                .flatMapMany(result -> result.map(this::rowToMap));
+    private FetchSpec<Map<String, Object>> fluxResultRows(String s, Map<String, Object> binds) {
+        return getEx(s,binds).fetch();
     }
 
-    private Mono<Integer> affectedRows(ConnectionFactory connectionFactory, String s, Map<String, Object> binds) {
-        return getResult(connectionFactory, s, binds)
-                .flatMap(result -> Mono.from(result.getRowsUpdated()));
+    private Mono<Integer> affectedRows(String s, Map<String, Object> binds) {
+        return getEx(s,binds).fetch().rowsUpdated();
     }
 
-    protected Mono<List<Map<String, Object>>> queryMapRows(String s, ConnectionFactory connectionFactory) {
-        return fluxResultRows(connectionFactory, s)
+    protected Mono<List<Map<String, Object>>> queryMapRows(String s) {
+        return fluxResultRows(s)
+                .all()
                 .collectList();
     }
 
-    protected Mono<Map<String, Object>> queryMapRow(String s, ConnectionFactory connectionFactory) {
-        return fluxResultRows(connectionFactory, s)
-                .take(1)
-                .collectList()
-                .flatMap(list -> Mono.just(list.get(0)));
+    protected Mono<Map<String, Object>> queryMapRow(String s) {
+        return fluxResultRows(s)
+                .first();
     }
 
-    protected Mono<List<Map<String, Object>>> queryMapRows(String s, ConnectionFactory connectionFactory, Map<String, Object> binds) {
-        return fluxResultRows(connectionFactory, s, binds)
-                .collectList();
+    protected Mono<List<Map<String, Object>>> queryMapRows(String s, Map<String, Object> binds) {
+        return fluxResultRows(s, binds).all().collectList();
     }
 
-    protected Mono<Map<String, Object>> queryMapRow(String s, ConnectionFactory connectionFactory, Map<String, Object> binds) {
-        return fluxResultRows(connectionFactory, s, binds)
-                .take(1)
-                .collectList()
-                .flatMap(list -> Mono.just(list.get(0)));
+    protected Mono<Map<String, Object>> queryMapRow(String s, Map<String, Object> binds) {
+        return fluxResultRows(s, binds).first();
     }
 
-    protected Mono<Integer> queryMap(String s, ConnectionFactory connectionFactory, Map<String, Object> binds) {
-        return affectedRows(connectionFactory, s, binds);
+    protected Mono<Integer> queryMap(String s, Map<String, Object> binds) {
+        return affectedRows(s, binds);
     }
 }

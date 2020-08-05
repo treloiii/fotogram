@@ -13,16 +13,10 @@ import java.util.Map;
 
 public class RefreshTokenRepositoryExtendedImpl extends BaseRepository implements RefreshTokenRepositoryExtended {
     private final Logger logger = LoggerFactory.getLogger(RefreshTokenRepositoryExtendedImpl.class);
-    private final ConnectionFactory connectionFactory;
-    public RefreshTokenRepositoryExtendedImpl(@Qualifier("connectionFactory") ConnectionFactory connectionFactory) {
-        this.connectionFactory = connectionFactory;
-    }
-
     @Override
     public void saveByUserId(Long id, String token) {
         queryMap(
-                "update user_refresh_token u set u.token = ?token where u.user_id = ?id;",
-                connectionFactory,
+                "update user_refresh_token u set u.token = :token where u.user_id = :id;",
                 Map.of("token",token,"id",id)
         ).subscribe(affectedRows->logger.info("Token saved. Rows affected {}",affectedRows));
     }

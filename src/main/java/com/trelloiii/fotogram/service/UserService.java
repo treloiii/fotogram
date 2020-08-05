@@ -25,17 +25,19 @@ public class UserService implements ReactiveUserDetailsService {
     }
 
     public Mono<UserProfileDto> getUserProfile(String username) {
-        return userServiceFacade.getUserAndHisPhotos(username,PageRequest.of(0,10, Sort.Direction.DESC,"id"))
-                .flatMap(tuple->{
-                    var container = tuple.getT1();
-                    var page = tuple.getT2();
-                    UserProfileDto userProfileDto = new UserProfileDto(
-                            container.getEntity(),
-                            page,
-                            container.getMetadata()
-                    );
-                    return Mono.just(userProfileDto);
-                });
+        return userRepository.getUserWithCountOfAllSubs(username)
+                .map(userEntity-> new UserProfileDto(userEntity.getEntity(),userEntity.getMetadata()));
+//        return userServiceFacade.getUserAndHisPhotos(username,PageRequest.of(0,9, Sort.Direction.DESC,"id"))
+//                .flatMap(tuple->{
+//                    var container = tuple.getT1();
+//                    var page = tuple.getT2();
+//                    UserProfileDto userProfileDto = new UserProfileDto(
+//                            container.getEntity(),
+//                            page,
+//                            container.getMetadata()
+//                    );
+//                    return Mono.just(userProfileDto);
+//                });
     }
 
     @Override

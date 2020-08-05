@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/photo")
 public class PhotoController {
     private final PhotoService photoService;
-    private final static int PHOTO_PER_PAGE=8;
+    private final static int PHOTO_PER_PAGE=9;
 
     public PhotoController(PhotoService photoService) {
         this.photoService = photoService;
